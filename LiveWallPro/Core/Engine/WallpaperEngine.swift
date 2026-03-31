@@ -10,6 +10,9 @@ final class WallpaperEngine {
     private(set) var isRunning: Bool = false
     private(set) var activeWallpapers: [CGDirectDisplayID: UUID] = [:]
 
+    /// Called when a wallpaper is set or removed, for persistence.
+    var onAssignmentChanged: ((_ displayID: CGDirectDisplayID, _ wallpaperID: UUID?, _ scalingMode: ScalingMode?) -> Void)?
+
     private var windows: [CGDirectDisplayID: WallpaperWindow] = [:]
     private let displayManager: DisplayManager
     private let playbackCoordinator: PlaybackCoordinator
@@ -69,6 +72,7 @@ final class WallpaperEngine {
         }
 
         activeWallpapers[displayID] = wallpaper.id
+        onAssignmentChanged?(displayID, wallpaper.id, scalingMode)
     }
 
     func removeWallpaper(for displayID: CGDirectDisplayID) {
@@ -76,6 +80,7 @@ final class WallpaperEngine {
         windows[displayID]?.setPlayer(nil)
         windows[displayID]?.hideFromDesktop()
         activeWallpapers.removeValue(forKey: displayID)
+        onAssignmentChanged?(displayID, nil, nil)
     }
 
     func setWallpaperOnAllDisplays(_ wallpaper: Wallpaper, scalingMode: ScalingMode = .fill) {

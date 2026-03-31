@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftData
 
@@ -20,9 +21,12 @@ final class AppState {
     let resourceMonitor: ResourceMonitor
     let wallpaperDownloader: WallpaperDownloader
 
+    private let modelContext: ModelContext
+
     // MARK: - Init
 
     init(modelContext: ModelContext) {
+        self.modelContext = modelContext
         let settings = SettingsStore.shared
         let displayManager = DisplayManager()
         let playbackCoordinator = PlaybackCoordinator()
@@ -48,6 +52,16 @@ final class AppState {
         self.libraryManager = LibraryManager(modelContext: modelContext)
         self.resourceMonitor = ResourceMonitor()
         self.wallpaperDownloader = WallpaperDownloader(settings: settings)
+
+        // Persist wallpaper assignments whenever the engine sets or removes one
+        self.wallpaperEngine.onAssignmentChanged = { [weak self] displayID, wallpaperID, scalingMode in
+            guard let self else { return }
+            if let wallpaperID, let scalingMode {
+                self.saveAssignment(displayID: displayID, wallpaperID: wallpaperID, scalingMode: scalingMode)
+            } else {
+                self.removeAssignment(displayID: displayID)
+            }
+        }
     }
 
     // MARK: - Lifecycle
@@ -57,6 +71,7 @@ final class AppState {
         resourceMonitor.startMonitoring()
         let policy = powerManager.evaluatePolicy(settings: settings)
         wallpaperEngine.handlePowerPolicyChange(policy)
+        restoreWallpapers()
     }
 
     func stopEngine() {
@@ -68,6 +83,51 @@ final class AppState {
     func refreshPowerPolicy() {
         let policy = powerManager.evaluatePolicy(settings: settings)
         wallpaperEngine.handlePowerPolicyChange(policy)
+    }
+
+    // MARK: - Wallpaper Persistence
+
+    /// Saves a display→wallpaper assignment to SwiftData.
+    func saveAssignment(displayID: CGDirectDisplayID, wallpaperID: UUID, scalingMode: ScalingMode = .fill) {
+        let key = String(displayID)
+        let descriptor = FetchDescriptor<DisplayAssignment>(
+            predicate: #Predicate { $0.displayID == key }
+        )
+        if let existing = try? modelContext.fetch(descriptor).first {
+            existing.wallpaperID = wallpaperID
+            existing.scalingMode = scalingMode
+        } else {
+            let assignment = DisplayAssignment(displayID: key, wallpaperID: wallpaperID)
+            assignment.scalingMode = scalingMode
+            modelContext.insert(assignment)
+        }
+        try? modelContext.save()
+    }
+
+    /// Removes the persisted assignment for a display.
+    func removeAssignment(displayID: CGDirectDisplayID) {
+        let key = String(displayID)
+        let descriptor = FetchDescriptor<DisplayAssignment>(
+            predicate: #Predicate { $0.displayID == key }
+        )
+        if let existing = try? modelContext.fetch(descriptor).first {
+            modelContext.delete(existing)
+            try? modelContext.save()
+        }
+    }
+
+    /// Restores wallpapers from persisted DisplayAssignments.
+    func restoreWallpapers() {
+        guard wallpaperEngine.isRunning else { return }
+        let descriptor = FetchDescriptor<DisplayAssignment>()
+        guard let assignments = try? modelContext.fetch(descriptor), !assignments.isEmpty else { return }
+
+        for assignment in assignments {
+            guard let wallpaperID = assignment.wallpaperID,
+                  let wallpaper = libraryManager.wallpaper(for: wallpaperID),
+                  let displayID = CGDirectDisplayID(assignment.displayID) else { continue }
+            wallpaperEngine.setWallpaper(wallpaper, for: displayID, scalingMode: assignment.scalingMode)
+        }
     }
 
     // MARK: - ViewModel Factories

@@ -22,14 +22,14 @@ struct LiveWallProApp: App {
     // MARK: - Scenes
 
     var body: some Scene {
-        WindowGroup("LiveWall Pro", id: "main") {
+        Window("LiveWall Pro", id: "main") {
             ContentView()
                 .environment(appStateInstance)
                 .frame(minWidth: 960, minHeight: 640)
                 .preferredColorScheme(.dark)
                 .onAppear {
-                    appStateInstance.startEngine()
                     try? appStateInstance.libraryManager.loadWallpapers()
+                    appStateInstance.startEngine()
                 }
         }
         .modelContainer(sharedModelContainer)
@@ -37,7 +37,7 @@ struct LiveWallProApp: App {
         .windowStyle(.hiddenTitleBar)
 
         /// Lightweight status indicator and quick controls in the menu bar.
-        MenuBarExtra("LiveWall Pro", systemImage: "sparkles.rectangle.stack") {
+        MenuBarExtra("LiveWall Pro", image: "MenuBarIcon") {
             MenuBarView()
                 .environment(appStateInstance)
         }
