@@ -4,25 +4,27 @@ import SwiftUI
 /// full-window theme gradient background.
 struct ContentView: View {
     @Environment(AppState.self) private var appState
-    @State private var viewModel: LibraryViewModel?
-
-    /// Lazily creates the view model on first access.
-    private var vm: LibraryViewModel {
-        if let viewModel { return viewModel }
-        let created = appState.makeLibraryViewModel()
-        Task { @MainActor in self.viewModel = created }
-        return created
-    }
+    @State private var vm: LibraryViewModel?
 
     private var theme: GradientThemePreset {
         appState.settings.gradientTheme
     }
 
     var body: some View {
+        if let vm {
+            mainContent(vm: vm)
+        } else {
+            Color.clear.onAppear {
+                vm = appState.makeLibraryViewModel()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func mainContent(vm: LibraryViewModel) -> some View {
         @Bindable var library = vm
 
         ZStack {
-            // Full-window gradient — sits behind the nav bar too
             theme.meshGradient.ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -41,7 +43,6 @@ struct ContentView: View {
 
                 case .explore:
                     if vm.selectedCategory != nil {
-                        // Browsing a specific category from the home grid
                         WallpaperGridView(viewModel: vm)
                     } else {
                         ExploreView(downloader: appState.wallpaperDownloader) { urls in
