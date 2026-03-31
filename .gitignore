@@ -1,0 +1,41 @@
+# Xcode
+*.xcuserstate
+*.xcworkspace
+xcuserdata/
+DerivedData/
+*.moved-aside
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivefile
+*.xccheckout
+*.xcscmblueprint
+/build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+*.AppleDouble
+*.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# DMG files — uploaded as GitHub Releases, not committed
+*.dmg
+
+# Claude Code local files
+.claude/
+
+# Build artifacts
+*.ipa
+*.dSYM.zip
+*.dSYM
