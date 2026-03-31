@@ -9,9 +9,15 @@ struct LiveWallProApp: App {
     // MARK: - SwiftData Container
 
     /// Shared persistent store for Wallpaper and DisplayAssignment models.
-    var sharedModelContainer: ModelContainer = {
+    /// Uses a static container so the store is never recreated when SwiftUI
+    /// re-evaluates the App struct.
+    var sharedModelContainer: ModelContainer { Self._container }
+
+    private static let _container: ModelContainer = {
         let schema = Schema([Wallpaper.self, DisplayAssignment.self])
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let storeURL = URL.applicationSupportDirectory
+            .appending(path: "LiveWallPro.store")
+        let config = ModelConfiguration(schema: schema, url: storeURL)
         do {
             return try ModelContainer(for: schema, configurations: [config])
         } catch {
