@@ -47,7 +47,8 @@ final class AppState {
         self.thumbnailPipeline = ThumbnailPipeline(settings: settings)
         self.importPipeline = ImportPipeline(
             modelContext: modelContext,
-            thumbnailPipeline: ThumbnailPipeline(settings: settings)
+            thumbnailPipeline: ThumbnailPipeline(settings: settings),
+            settings: settings
         )
         self.libraryManager = LibraryManager(modelContext: modelContext)
         self.resourceMonitor = ResourceMonitor()

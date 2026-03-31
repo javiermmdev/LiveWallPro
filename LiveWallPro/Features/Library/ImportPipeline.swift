@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 final class ImportPipeline {
     private let modelContext: ModelContext
     private let thumbnailPipeline: ThumbnailPipeline
+    private let settings: SettingsStore
 
     private(set) var isImporting: Bool = false
     private(set) var importProgress: Double = 0
@@ -16,9 +17,10 @@ final class ImportPipeline {
     static let supportedTypes: [UTType] = [.mpeg4Movie, .quickTimeMovie, .movie]
     static let supportedExtensions: Set<String> = ["mp4", "m4v", "mov"]
 
-    init(modelContext: ModelContext, thumbnailPipeline: ThumbnailPipeline) {
+    init(modelContext: ModelContext, thumbnailPipeline: ThumbnailPipeline, settings: SettingsStore) {
         self.modelContext = modelContext
         self.thumbnailPipeline = thumbnailPipeline
+        self.settings = settings
     }
 
     func importFiles(_ urls: [URL]) async {
@@ -67,16 +69,32 @@ final class ImportPipeline {
             if accessing { url.stopAccessingSecurityScopedResource() }
         }
 
-        // Check if already imported
-        let path = url.path
+        // Copy the file to the managed wallpaper folder so the library survives
+        // even if the original is moved or deleted.
+        let libraryDir = URL(fileURLWithPath: settings.wallpaperFolderPath)
+        try FileManager.default.createDirectory(at: libraryDir, withIntermediateDirectories: true)
+
+        let destURL = uniqueDestination(for: url.lastPathComponent, in: libraryDir)
+
+        // Skip if the file is already inside the library folder
+        let sourceInLibrary = url.deletingLastPathComponent().standardizedFileURL == libraryDir.standardizedFileURL
+
+        if !sourceInLibrary {
+            try FileManager.default.copyItem(at: url, to: destURL)
+        }
+
+        let finalURL = sourceInLibrary ? url : destURL
+
+        // Check if already imported (by destination path)
+        let finalPath = finalURL.path
         let existingDescriptor = FetchDescriptor<Wallpaper>(
-            predicate: #Predicate { $0.filePath == path }
+            predicate: #Predicate { $0.filePath == finalPath }
         )
         let existing = try modelContext.fetchCount(existingDescriptor)
         if existing > 0 { return }
 
         // Extract video metadata
-        let asset = AVURLAsset(url: url)
+        let asset = AVURLAsset(url: finalURL)
         let duration = try await asset.load(.duration)
         let tracks = try await asset.loadTracks(withMediaType: .video)
 
@@ -98,13 +116,13 @@ final class ImportPipeline {
             }
         }
 
-        let fileAttributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        let fileAttributes = try FileManager.default.attributesOfItem(atPath: finalURL.path)
         let fileSize = fileAttributes[.size] as? Int64 ?? 0
 
-        let title = url.deletingPathExtension().lastPathComponent
+        let title = finalURL.deletingPathExtension().lastPathComponent
 
         let wallpaper = Wallpaper(
-            filePath: url.path,
+            filePath: finalURL.path,
             title: title,
             resolutionWidth: width,
             resolutionHeight: height,
@@ -116,11 +134,24 @@ final class ImportPipeline {
         modelContext.insert(wallpaper)
 
         // Generate thumbnail
-        if let thumbnailPath = try? await thumbnailPipeline.generateThumbnail(for: url, wallpaperID: wallpaper.id) {
+        if let thumbnailPath = try? await thumbnailPipeline.generateThumbnail(for: finalURL, wallpaperID: wallpaper.id) {
             wallpaper.thumbnailPath = thumbnailPath
         }
 
         try modelContext.save()
+    }
+
+    /// Returns a unique file URL inside `directory`, appending a number if a file with the same name already exists.
+    private func uniqueDestination(for fileName: String, in directory: URL) -> URL {
+        let base = (fileName as NSString).deletingPathExtension
+        let ext = (fileName as NSString).pathExtension
+        var dest = directory.appendingPathComponent(fileName)
+        var counter = 1
+        while FileManager.default.fileExists(atPath: dest.path) {
+            dest = directory.appendingPathComponent("\(base)-\(counter).\(ext)")
+            counter += 1
+        }
+        return dest
     }
 
     private func fourCCToString(_ code: FourCharCode) -> String {
