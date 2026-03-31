@@ -11,7 +11,7 @@
   <br /><br />
 
   <a href="https://github.com/javiermmdev/LiveWallPro/releases/latest">
-    <img src="https://img.shields.io/badge/⬇ Download-LiveWallPro--1.0.1.dmg-blueviolet?style=for-the-badge" />
+    <img src="https://img.shields.io/github/v/release/javiermmdev/LiveWallPro?label=⬇%20Download&style=for-the-badge&color=blueviolet" />
   </a>
 
   <br /><br />
@@ -50,7 +50,7 @@
 
 ## Installation
 
-1. Download **[LiveWallPro-1.0.1.dmg](https://github.com/javiermmdev/LiveWallPro/releases/latest)** from the latest release
+1. Download the **[latest release DMG](https://github.com/javiermmdev/LiveWallPro/releases/latest)** from GitHub
 2. Open the DMG and drag **LiveWall Pro** into your Applications folder
 3. Launch the app — grant **Screen Recording** permission when prompted
 4. Import a video file or browse the Explore tab to download wallpapers
