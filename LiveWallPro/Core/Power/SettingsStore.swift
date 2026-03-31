@@ -1,4 +1,5 @@
 import Foundation
+import ServiceManagement
 import SwiftUI
 
 enum BatteryOptimizationMode: String, CaseIterable, Sendable {
@@ -50,7 +51,10 @@ final class SettingsStore: @unchecked Sendable {
 
     // General
     var launchAtLogin: Bool {
-        didSet { UserDefaults.standard.set(launchAtLogin, forKey: "launchAtLogin") }
+        didSet {
+            UserDefaults.standard.set(launchAtLogin, forKey: "launchAtLogin")
+            updateLoginItem()
+        }
     }
     var showInMenuBar: Bool {
         didSet { UserDefaults.standard.set(showInMenuBar, forKey: "showInMenuBar") }
@@ -123,5 +127,22 @@ final class SettingsStore: @unchecked Sendable {
         self.pauseWhenInactive = defaults.object(forKey: "pauseWhenInactive") as? Bool ?? true
         self.thumbnailCacheSizeMB = defaults.object(forKey: "thumbnailCacheSizeMB") as? Int ?? 500
         self.useHardwareAcceleration = defaults.object(forKey: "useHardwareAcceleration") as? Bool ?? true
+
+        // Sync login item state with the stored preference
+        updateLoginItem()
+    }
+
+    /// Registers or unregisters the app as a login item via SMAppService.
+    private func updateLoginItem() {
+        let service = SMAppService.mainApp
+        do {
+            if launchAtLogin {
+                try service.register()
+            } else {
+                try service.unregister()
+            }
+        } catch {
+            print("[SettingsStore] Failed to update login item: \(error.localizedDescription)")
+        }
     }
 }

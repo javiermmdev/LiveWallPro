@@ -62,6 +62,18 @@ final class AppState {
                 self.removeAssignment(displayID: displayID)
             }
         }
+
+        // On sleep: pause all players to release GPU resources
+        self.powerManager.onSleep = { [weak self] in
+            guard let self else { return }
+            self.playbackCoordinator.pauseAll()
+        }
+
+        // On wake: rebuild players from scratch (AVPlayers break after system sleep)
+        self.powerManager.onWake = { [weak self] in
+            guard let self else { return }
+            self.handleWake()
+        }
     }
 
     // MARK: - Lifecycle
@@ -83,6 +95,23 @@ final class AppState {
     func refreshPowerPolicy() {
         let policy = powerManager.evaluatePolicy(settings: settings)
         wallpaperEngine.handlePowerPolicyChange(policy)
+    }
+
+    /// Rebuilds all wallpaper players after wake from sleep.
+    /// AVQueuePlayer + AVPlayerLooper instances become unreliable after system
+    /// hibernation, so we tear down every player and recreate them from the
+    /// persisted DisplayAssignments.
+    private func handleWake() {
+        guard wallpaperEngine.isRunning else { return }
+
+        // Tear down stale players but keep windows alive
+        playbackCoordinator.teardownAll()
+
+        // Re-read assignments and set up fresh players
+        restoreWallpapers()
+
+        // Apply the current power policy
+        refreshPowerPolicy()
     }
 
     // MARK: - Wallpaper Persistence
